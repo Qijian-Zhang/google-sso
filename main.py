@@ -21,7 +21,7 @@ my_sql_data_service = MySQLDataService()
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 CLIENT_ID = "566480876817-3oom0reuo525tefvpsr6otpmg7fc8pjb.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
-OAUTH_URL = "http://54.163.53.3:5001"
+OAUTH_URL = "http://54.163.53.3.nip.io:5001"
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
