@@ -3,10 +3,12 @@
 
 import os
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi_sso.sso.google import GoogleSSO
 import json
+from starlette.middleware.sessions import SessionMiddleware
 
 from fastapi.staticfiles import StaticFiles
 
@@ -21,7 +23,7 @@ my_sql_data_service = MySQLDataService()
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 CLIENT_ID = "566480876817-3oom0reuo525tefvpsr6otpmg7fc8pjb.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
-OAUTH_URL = "http://54.163.53.3.nip.io:5001"
+OAUTH_URL = "http://18.234.195.74.nip.io:5001"
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -31,7 +33,14 @@ sso = GoogleSSO(
     redirect_uri=OAUTH_URL + "/auth/callback",
     allow_insecure_http=True,
 )
+callback=['http://localhost:3000/Dashboard','http://localhost:3000/customerhome','http://localhost:3000/storage']
+usertypes=[]
 
+# Secret key for signing the session cookie
+SECRET_KEY = "mysecretkey"
+
+# Middleware to enable sessions
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 @app.get("/ping", response_class=HTMLResponse)
 def ping():
@@ -54,10 +63,12 @@ def ping():
     return rsp
 
 @app.get("/", response_class=HTMLResponse)
-async def home_page():
+async def home_page(request: Request):
     print("Current directory = " + os.getcwd())
     print("Files = " + str(os.listdir("./")))
+    user_type = request.query_params.get("user_type", "unknown")
 
+    request.session['usertype'] = user_type
     result = """
     <!DOCTYPE html>
     <html lang="en">
@@ -95,22 +106,9 @@ async def home_page():
     </head>
     <body>
         <div class="container">
-        <p>
-        This is the sample web application for <a href="https://donald-f-ferguson.github.io/E6156-Cloud-Computing-F23/">
-        E6156 - Topics in SW Engineering, section 001, Fall 2023.</a> 
-        </p>
-        <p>The application simply demonstrates single sign-on
-        via Google for Columbia University students.
-        </p>
-        <p>
-        The application does not capture or maintain any information about users. The application does not
-        share any information.
-        </p>
+        
         <form action="{OAUTH_URL}/auth/login">
-            <div class="logo">
-                <img src="{OAUTH_URL}/static/e6156-logo.jpg" 
-                    height="100px" alt="Google Logo">
-            </div>
+            
             <h2>Sign in with your Google Account</h2>
             <button type="submit" class="button">Login with Google</button>
             </form>
@@ -139,6 +137,7 @@ async def auth_callback(request: Request):
         with sso:
             user = await sso.verify_and_process(request)
             data = user
+            usertype = request.session.get('usertype', -1)
 
             #student = my_sql_data_service.get_student_info(user.email)
             #print("Student = \n", json.dumps(student, indent=2, default=str))
@@ -163,7 +162,7 @@ async def auth_callback(request: Request):
                     <p>Last Name: {user.last_name}</p>
                     <p>Display Name: {user.display_name}</p>
                     <p>Identity Provider: {user.provider}</p>
-
+                    <a href='http://6156ruoxing.s3-website-us-east-1.amazonaws.com/mid?auth={usertype}&email={user.email}' >Continue to home page</a>
                 </body>
                 </html>
                 """
